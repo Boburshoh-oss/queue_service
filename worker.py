@@ -17,13 +17,16 @@ from datetime import datetime, timedelta, timezone
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
+import importlib
+
 import requests
 
 from queue_db import QueueDB
 
 # Access face_analyze for promotion
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "face_analyze"))
-from database import FaceDB
+_db_module = os.environ.get("FACEDB_BACKEND", "database_pgvector")
+FaceDB = importlib.import_module(_db_module).FaceDB
 
 
 tz = timezone(timedelta(hours=5))  # Asia/Tashkent
