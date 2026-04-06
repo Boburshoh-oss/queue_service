@@ -1,0 +1,8 @@
+config.json
+queue.db
+__pycache__/
+*.pyc
+*.pyo
+logs/
+*.log
+

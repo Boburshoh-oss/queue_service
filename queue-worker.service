@@ -1,0 +1,17 @@
+[Unit]
+Description=Queue Worker - Visitor Data Upload
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ishonch
+WorkingDirectory=/home/ishonch/projects/deepstream/queue_service
+ExecStart=/usr/bin/python3 /home/ishonch/projects/deepstream/queue_service/worker.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
