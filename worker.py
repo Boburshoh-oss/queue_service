@@ -74,6 +74,7 @@ class QueueWorker:
             "check_endpoint", "/api/v1/visitors/employees/check-approval/"
         )
         self.approval_check_interval = approval.get("check_interval_seconds", 300)
+        self.auto_approve_days = approval.get("auto_approve_days", 3)
         self._last_approval_check = datetime.min.replace(tzinfo=tz)
 
         # FaceDB for promotion (lazy-loaded)
@@ -378,6 +379,41 @@ class QueueWorker:
             except (json.JSONDecodeError, KeyError) as exc:
                 self.logger.warning(
                     "Approval %s: invalid status response — %s", approval_id, exc,
+                )
+
+        # Auto-promote any approvals that have been waiting too long
+        self._auto_promote_expired_approvals()
+
+    def _auto_promote_expired_approvals(self):
+        """Auto-promote visitors whose approval has been SENT but unresolved for too long."""
+        expired = self.db.get_expired_sent_approvals(self.auto_approve_days)
+        if not expired:
+            return
+
+        self.logger.info(
+            "Found %d approval(s) expired after %d days — auto-promoting",
+            len(expired), self.auto_approve_days,
+        )
+
+        for approval in expired:
+            approval_id = approval["approval_id"]
+            visitor_face_id = approval["visitor_face_id"]
+            try:
+                face_db = self._get_face_db()
+                if face_db.promote_to_employee(visitor_face_id, visitor_face_id):
+                    self.db.mark_approval_resolved(approval_id, "AUTO_APPROVED")
+                    self.logger.info(
+                        "✅ Visitor %s auto-promoted to employee (no response after %d days)",
+                        visitor_face_id, self.auto_approve_days,
+                    )
+                else:
+                    self.logger.warning(
+                        "Visitor %s: auto-promote failed (not found in visitor DB)",
+                        visitor_face_id,
+                    )
+            except Exception as exc:
+                self.logger.error(
+                    "Approval %s: auto-promote error — %s", approval_id, exc,
                 )
 
     # ── cleanup ───────────────────────────────────────────────────

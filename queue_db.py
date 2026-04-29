@@ -394,3 +394,20 @@ class QueueDB:
                 return row is not None
             finally:
                 conn.close()
+
+    def get_expired_sent_approvals(self, days: int) -> list[dict]:
+        """Get SENT approvals that have been waiting more than `days` days without resolution."""
+        cutoff = (datetime.now(tz) - timedelta(days=days)).isoformat()
+
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                rows = conn.execute(
+                    """SELECT * FROM employee_approvals
+                       WHERE status = 'SENT' AND sent_at <= ?
+                       ORDER BY sent_at ASC""",
+                    (cutoff,)
+                ).fetchall()
+                return [dict(row) for row in rows]
+            finally:
+                conn.close()
